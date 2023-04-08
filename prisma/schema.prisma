@@ -1,0 +1,183 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int             @id @default(autoincrement())
+  firstName     String
+  lastName      String
+  email         String          @unique
+  password      String
+  role          String // (admin, staff, etc.)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  tasks         Task[]
+  project       Project[]
+  interaction   Interaction[]
+  AIInteraction AIInteraction[]
+  chatMemory    ChatMemory[]
+}
+
+model Project {
+  id          Int                 @id @default(autoincrement())
+  name        String
+  description String
+  ownerId     Int
+  owner       User                @relation(fields: [ownerId], references: [id])
+  status      String // (e.g., pending, in-progress, completed, etc.)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  tasks       Task[]
+  campaigns   MarketingCampaign[]
+  revenues    Revenue[]
+  customers   Customer[]
+}
+
+model Task {
+  id             Int             @id @default(autoincrement())
+  name           String
+  description    String
+  projectId      Int
+  project        Project         @relation(fields: [projectId], references: [id])
+  assignedUserId Int?
+  assignedUser   User?           @relation(fields: [assignedUserId], references: [id])
+  status         String // (e.g., pending, in-progress, completed, etc.)
+  priority       Int
+  dueDate        DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  interactions   AIInteraction[]
+}
+
+model MarketingCampaign {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  projectId   Int
+  project     Project  @relation(fields: [projectId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  budget      Float
+  status      String // (e.g., planned, running, completed, etc.)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Revenue {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  project   Project  @relation(fields: [projectId], references: [id])
+  amount    Float
+  date      DateTime
+  source    String // (e.g., product sales, ad revenue, etc.)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id           Int           @id @default(autoincrement())
+  firstName    String
+  lastName     String
+  email        String        @unique
+  phone        String?
+  projectId    Int
+  project      Project       @relation(fields: [projectId], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  interactions Interaction[]
+}
+
+model Interaction {
+  id          Int      @id @default(autoincrement())
+  customerId  Int
+  customer    Customer @relation(fields: [customerId], references: [id])
+  type        String // (e.g., chat, email, phone call, etc.)
+  content     String
+  timestamp   DateTime
+  createdById Int?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+}
+
+model AIInteraction {
+  id             Int              @id @default(autoincrement())
+  taskId         Int
+  task           Task             @relation(fields: [taskId], references: [id])
+  input          String // (the data provided to the agent)
+  output         String // (the agent's response)
+  confidence     Float // (the agent's confidence in its response)
+  timestamp      DateTime
+  createdById    Int? // (User) [if the interaction is initiated by a user]
+  createdBy      User?            @relation(fields: [createdById], references: [id])
+  decisions      AIDecision[]
+  errors         AIError[]
+  GPTResponseLog GPTResponseLog[]
+}
+
+model AIDecision {
+  id              Int               @id @default(autoincrement())
+  interactionId   Int
+  interaction     AIInteraction     @relation(fields: [interactionId], references: [id])
+  decisionType    String // (e.g., marketing strategy, target audience, pricing, etc.)
+  decisionDetails Json // (a JSON object or text field to store decision-related data)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  outcomes        DecisionOutcome[]
+}
+
+model DecisionOutcome {
+  id             Int        @id @default(autoincrement())
+  decisionId     Int
+  decision       AIDecision @relation(fields: [decisionId], references: [id])
+  outcomeType    String // (e.g., success, failure, partial success, etc.)
+  outcomeDetails Json // (a JSON object or text field to store outcome-related data)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model AIError {
+  id            Int             @id @default(autoincrement())
+  interactionId Int?
+  interaction   AIInteraction?  @relation(fields: [interactionId], references: [id])
+  errorType     String // (e.g., data retrieval, external API failure, processing error, etc.)
+  errorMessage  String
+  timestamp     DateTime
+  resolved      Boolean
+  improvements  AIImprovement[]
+}
+
+model AIImprovement {
+  id          Int      @id @default(autoincrement())
+  errorId     Int? // (AIError) [if the improvement is related to a specific error]
+  error       AIError? @relation(fields: [errorId], references: [id])
+  description String
+  status      String //  (e.g., proposed, in progress, completed, etc.)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model GPTResponseLog {
+  id            Int           @id @default(autoincrement())
+  interactionId Int
+  interaction   AIInteraction @relation(fields: [interactionId], references: [id])
+  input         String
+  output        String
+  confidence    Float
+  timestamp     DateTime
+}
+
+model ChatMemory {
+  id        Int      @id @default(autoincrement())
+  human     String?  @db.LongText
+  ai        String?  @db.LongText
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    Int?
+}
